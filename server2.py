@@ -1,18 +1,3 @@
-#WhattsUp Server
-#
-
-# Yet another simple socket multi-user chating program
-
-# Please use `telnet IP PORT` to log in
-#
-
-# @author:   Xin Wang <sutarshow#gmail.com>
-
-# @version:  1.0
-
-# @since:    16-09-2013
-#
-
 import socket
 import threading
 import time

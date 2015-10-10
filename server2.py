@@ -1,116 +1,113 @@
 import socket
 import threading
-import time
 import logging
+import time
 
 HOST = ''
 PORT = 8018
-TIMEOUT = 5
 BUF_SIZE = 1024
 
-class WhatsUpServer(threading.Thread):
+class server(threading.Thread):
 
-    def __init__(self, conn, addr):
-        threading.Thread.__init__(self)
-        self.conn = conn
-        self.addr = addr
-        self.ip = self.addr[0]
-        self.name = ''
+	def __init__(self, conn, addr):
+		threading.Thread.__init__(self)
+		self.conn = conn
+		self.addr = addr
+		self.ip = self.addr[0]
+		self.username = ''
 
-    def print_indicator(self, prompt):
-        self.conn.send('%s\n>> ' % (prompt,))
+	def printMessage(self, msg):
+		self.conn.send('%s\n>> ' % (msg,))
 
-    def login(self):
-        global clients
-        global messages
-        global accounts
+	def login(self):
+		global client
+		global pesan
+		global akun
+		global online
 
-        logging.info('Koneksi dari : %s:%s' %
-                     (self.addr[0], self.addr[1]))
-        clients.add((self.conn, self.addr))
-        msg = '\n--- Tekan `#q` untuk keluar\n'
+		logging.info('Connected from : %s %s' % (self.addr[0], self.addr[1]))
+		msg = 'Username : '
+		self.printMessage(msg)
+		username = self.conn.recv(BUF_SIZE).strip()
 
-        # new user
-        print accounts
-        if self.ip not in accounts:
-            msg += '--- Masukkan username anda :'
-            self.print_indicator(msg)
-            accounts[self.ip] = {
-                'name': '',
-                'pass': '',
-                'lastlogin': time.ctime()
-            }
-            while 1:
-                name = self.conn.recv(BUF_SIZE).strip()
-                if name in messages:
-                    self.print_indicator(
-                        '--- Username telah digunakan')
-                else:
-                    break
-            accounts[self.ip]['name'] = name
-            self.name = name
-            logging.info('%s login sebagai %s' % (self.addr[0], self.name))
-            messages[name] = []
-            self.print_indicator(
-                '--- %s, silakan masukkan password anda' % (self.name,))
-            password = self.conn.recv(BUF_SIZE)
-            accounts[self.ip]['pass'] = password.strip()
-            self.print_indicator('--- Selamat datang')
-        else:
-            self.name = accounts[self.ip]['name']
-            msg += '--- %s, silakan masukkan password anda' % (self.name,)
-            # print accounts
-            self.print_indicator(msg)
-            while 1:
-                password = self.conn.recv(BUF_SIZE).strip()
-                if password != accounts[self.ip]['pass']:
-                    self.print_indicator(
-                        '--- Password yang anda masukkan tidak salah')
-                else:
-                    self.print_indicator(
-                        '--- Selamat datang, terakhir login : %s' %
-                        (accounts[self.ip]['lastlogin'],))
-                    accounts[self.ip]['lastlogin'] = time.ctime()
-                    break
+		while username in akun:
+			self.printMessage('Username %s telah digunakan, silakan masukkan password anda atau tekan !q untuk mengganti username\nPassword :' % (username))
+			password = self.conn.recv(BUF_SIZE).strip()
+			if(password.find('!q') == 0):
+				while 1:
+					msg = 'Username : '
+					self.printMessage(msg)
+					username = self.conn.recv(BUF_SIZE).strip()
+					break
+			else:
+				while 1:
+					self.username = username
+					if(password != akun[self.username]['password']):
+						msg = 'Password yang anda masukkan salah.\nPassword :'
+						self.printMessage(msg)
+						password = self.conn.recv(BUF_SIZE).strip()
+						break						
+					else:
+						self.printMessage('--- Selamat Datang Kembali %s, Login terakhir %s ' % (username, akun[username]['terakhirLogin']))
+						self.username = username
+						akun[self.username]['terakhirLogin'] = time.ctime()
+						return
+						
 
-    def logoff(self):
-        global clients
-        self.conn.send('## Selamat tingggal.!\n')
-        self.conn.close()
-        exit()
+		msg = 'Password : '		
+		self.printMessage(msg)
+		self.username = username
+		password = self.conn.recv(BUF_SIZE).strip()
+		# akun[self.username] = {
+		# 	'pass' = password,
+		# 	'lastlogin' = time.ctime()
+		# }
+		akun[self.username] = {
+            'password': password,
+        	'terakhirLogin': time.ctime()
+        }
+		online[self.username] = self.conn
+		print akun
+		return
 
-    def run(self):
-        global messages
-        global accounts
-        global clients
-        self.login()
+	def run(self):
+		global client
+		global pesan
+		global akun
+		self.login()
+
+		self.conn.send('Welcome, enjoy your chat')
+
+
 
 def main():
-    global clients
-    global messages
-    global accounts
+	global client
+	global pesan
+	global akun
+	global online
 
-    # initialize global vars
-    clients = set()
-    messages = {}
-    accounts = {}
+	logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%d/%m/%Y %I:%M:%S %p')
 
-    # set up socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((HOST, PORT))
-    sock.listen(5)
+	client = set()
+	pesan = {}
+	akun = {}
+	online = {}
 
-    while 1:
-        try:
-            conn, addr = sock.accept()
-            server = WhatsUpServer(conn, addr)
-            server.start()
-        except Exception, error:
-            print error
+	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+	sock.bind((HOST, PORT))
+	sock.listen(5)
+
+	while 1:
+		try:
+			conn, addr = sock.accept()
+			beginServer = server(conn, addr)
+			beginServer.start()
+		except:
+			print 'Leave'
 
 if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print 'Quited'
+	try:
+		main()
+	except KeyboardInterrupt:
+		print 'Quited'

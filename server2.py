@@ -4,6 +4,7 @@ import socket
 import threading
 import logging
 import time
+import sys
 
 HOST = ''
 PORT = 8018
@@ -20,7 +21,7 @@ class server(threading.Thread):
 		self.username = ''
 
 	def printMessage(self, msg):
-		self.conn.send('%s\n>> ' % (msg,))
+		self.conn.send('%s' % (msg,))
 
 	def login(self):
 		global client
@@ -71,23 +72,73 @@ class server(threading.Thread):
         	'terakhirLogin': time.ctime()
         }
 		online[self.username] = self.conn
-		print accounts
+		# print accounts
 		return
 
 	def controller(self, readInput):
 		global online
-		print 'masuk controller'
+		# print 'masuk controller'
 
-		if(readInput.find('sendall')==0):
+		if(readInput.find('sendall@')==0):
 			self.sendall(readInput, online)
+		elif(readInput.find('sendto@')==0):
+			self.sendto(readInput, online)
+		elif(readInput.find('list@')==0):
+			self.list(online)
+		elif(readInput.find('help@')==0):
+			self.help()
+		else:
+			msg = 'fitur yang anda masukkan belum terdaftar, ketik help@ untuk melihat daftar fitur yang ada'
+			self.printMessage(msg)
 
 	def sendall(self, msg, online):
-		print online
+		# print 'masuk sendall'
+		# print online
+		# print msg
+		msg = msg.split(' ',1)[1]
+		# print msg
 		for username in online:
-			print 'print to'+username
-			print online[username]
+			# print 'print to'+username
+			# print online[username]
 			if(self.username != username):
-				online[username].send('[%s] : %s' % (self.username, msg))
+				online[username].send('[ %s ] : %s' % (self.username, msg))
+			else:
+				self.printMessage('[ you - all ] : %s' % (msg))
+
+	def sendto(self, msg, online):
+		if(msg.find('"')==7):
+			receiver = msg.split('"')[1]
+			msg = msg.split('"')[2]
+		else:
+			receiver = msg.split()[0][7:]
+			msg = msg.split(' ', 1)[1]
+
+		if(receiver not in online):
+			msg = 'penerima sedang offline'
+			self.printMessage(msg)
+		elif(self.username == receiver):
+			msg = 'tidak dapat mengirim pesan kediri sendiri'
+			self.printMessage(msg)
+		else:
+			online[receiver].send('[ #%s ] : %s' % (self.username,msg))			
+			self.printMessage('[ #you - %s ] : %s' % (receiver, msg))
+
+	def help(self):
+		fitur = '1. sendto@pengguna_aktif [ jika nama pengguna_aktif dipisahkan spasi, gunakan "pengguna_aktif" ]\n'
+		fitur += '2. sendall@ [ mengirim ke semua pengguna_aktif ]\n'
+		fitur += '3. list@ [ melihat daftar pengguna_aktif ]\n'
+		fitur += '4. help@ [ melihat daftar fitur yang ada ]'
+		self.printMessage('Daftar perintah : \n %s' % (fitur))
+
+	def list(self, online):
+		listOnline = online.keys()
+		num = 1
+		msg = 'Daftar pengguna yang sedang online :\n'
+		for user in listOnline:
+			msg += '%s. %s\n' % (num, user)
+			num+=1
+		self.conn.send('%s' % msg)
+
 
 	def run(self):
 		global client
@@ -95,15 +146,17 @@ class server(threading.Thread):
 		global accounts
 		self.login()
 		# self.conn.send('Welcome, enjoy your chat')
+		msg = 'Selamat datang (:\n'
+		self.printMessage(msg)
 		# print 'Selamat datang, selamat menikmati percakapan anda (:'
 
 		while 1:
 			# print 'masuk while 1 run'
 			try:
-				print 'masuk try'+self.username
+				# print 'masuk try'+self.username
 				# self.conn.settimeout(TIMEOUT)
 				readInput = self.conn.recv(BUF_SIZE).strip()
-				print 'dapet readInput'
+				# print 'dapet readInput'
 				logging.info('%s: %s' % (self.username, readInput))				
 				self.controller(readInput)
 			except Exception, e:
@@ -135,7 +188,8 @@ def main():
 			beginServer = server(conn, addr)
 			beginServer.start()
 		except:
-			print 'Leave'
+			# print 'Leave'
+			sys.exit()
 
 if __name__ == '__main__':
 	try:
